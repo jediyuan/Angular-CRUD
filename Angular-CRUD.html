@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>AngularJS Table CRUD</title>
+	<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+	<link rel="stylesheet" href="lib/bootstrap.min.css">
+	<script src="lib/angular-1.5.8.min.js"></script>
+	<style>
+		html,body{width: 100%; font-family: 'Microsoft Yahei';font-size: 16px;}
+		*{margin:0;padding:0;}
+		.list{width:100%;margin:0 auto;overflow: hidden;background: #ccc}
+		div{margin:10px 0;}
+		.head{height: 50px;line-height: 50px;font-size: 30px;text-align: center;color:#fff;}
+		.showBox{width: 1100px;margin:0 auto;background: #263e2d; padding:20px; }
+		.blur{width: 100%;height: 100%;margin:0;background: rgba(0,0,0,.5);position: fixed;}
+		.editBox{position: fixed;width: 300px;padding:20px;background: #fff;margin:0;top:50%;left:50%;margin-top:-266px;margin-left: -150px;border-radius: 10px;box-shadow: 0 0 10px #000;}
+		.isModified{width:60%;margin:0 auto;}
+		span{color:#fff;}
+		input,select{display: inline-block !important}
+		button{vertical-align: top!important;}
+		input{border:1px solid #000;outline:none;height: 40px;width:408px !important;font-size:16px;padding: 5px 20px;}
+		.editBox input{width: 100%!important}
+		.add .name,.author,.publish{width:230px !important;}
+		.add .discounted{width:100px !important;}
+		.add .price{width:100px !important;}
+		.title{text-align: center;color:#0275d8;}
+		select{height: 40px;width: 106px !important;text-align: center;}
+		.mid{text-align: center}
+		table{border-collapse:collapse;border-spacing:0;}
+		td,th{border:1px solid #000;}
+		td{padding: 8px 2px!important;}
+		th:hover{background: blue;color:#fff;cursor:pointer;}
+		tr{background: #ecbaba;}
+		tr:nth-of-type(2n-1){background: #d1e6d0;}
+		tr.green{background: #259e1f}
+		th{text-align: center;}
+		.fl{float: left}
+		.fr{float: right}
+	</style>
+</head>
+<body>
+	<div ng-app="list" ng-controller="contrl" class="list">
+		 <div class="blur" ng-show="isShow">
+			<div class="editBox">
+				<h3 class="title">信息更新</h3>
+				<p>书名：<input type="text" class="form-control" ng-model="newName"></p>
+				<p>作者：<input type="text" class="form-control" ng-model="newAuthor"></p>
+				<p>出版社：<input type="text" class="form-control" ng-model="newPublish"></p>
+				<p>折扣：<input type="text" class="form-control" ng-model="newDiscounted"></p>
+				<p>价格：<input type="text" class="form-control" ng-model="newPrice"></p>
+				<p class="isModified"><button class="fl btn  btn-primary" ng-click="confirm()">确认</button><button class="fr btn  btn-primary" ng-click="cancal()">取消</button></p>
+			</div>
+		</div>
+		<div class="showBox">
+			<div class="head">在线图书管理系统</div>
+			<div class="fl">
+				<span>Search：</span>
+				<input class="form-control" type="text" placeholder="Search item by {{Search}}" ng-model="inputVal">
+			</div>
+			<div class="fr">
+				<span>Search By：</span>
+				<select class="form-control" ng-model="Search" ng-options="x for x in data.title" ng-change="changeType(type)"></select>
+				<span>Sort By：</span>
+				<select class="form-control" ng-model="sort" ng-options="x for x in data.title"></select>
+			</div>
+
+			<table class="table table-border">
+				<tr>
+					<th ng-click="">序号</th>
+					<th ng-click="sort='name';bool=!bool">书名</th>
+					<th ng-click="sort='author';bool=!bool">作者</th>
+					<th ng-click="sort='publish';bool=!bool">出版社</th>
+					<th ng-click="sort='discounted';bool=!bool">折扣</th>
+					<th ng-click="sort='price';bool=!bool">价格</th>
+					<th>操作</th>
+				</tr>
+				<tr ng-repeat="x in data.lists | orderBy:sort:bool | filter:typeFun(ty)" ng-class="{'green':green == x.id}">
+					<td class="mid">{{$index+1}} | {{x.id}}</td>
+					<td>{{x.name}}</td>
+					<td>{{x.author}}</td>
+					<td>{{x.publish}}</td>
+					<td class="mid">{{x.discounted}}</td>
+					<td class="mid">{{x.price | currency:'¥'}}</td>
+					<td class="mid"><a href="javascript:;" ng-click='modified(x.id,$index)'>修改</a><em>丨</em><a href="javascript:;" ng-click="delete(x.id)">删除</a></td>
+				</tr>
+			</table>
+			<div class="add">
+				<input type="text" ng-model='books.name' class="form-control name" placeholder="enter the name">
+				<input type="text" ng-model="books.author" class="form-control author" placeholder="enter the author">
+				<input type="text" ng-model="books.publish" class="form-control publish" placeholder="enter the publish">
+				<input type="text" ng-model="books.discounted" class="form-control discounted" placeholder="discounted">
+				<input type="text" ng-model="books.price" class="form-control price" placeholder="price">
+				<button class="btn  btn-primary" ng-click='add(books)'>添加</button>
+			</div> 
+		</div>
+	</div>
+	<script>
+		var list = angular.module('list',[]);
+		list.run(['$http',function($http) {
+		  $http.defaults.headers.common.Authorization = 'JJIJI ddfdgd';
+		}]);
+		list.controller('contrl',['$scope','$http','$timeout',function($scope,$http,$timeout){
+			var data = angular.fromJson(sessionStorage.getItem('data'));
+			$scope.isShow = false;
+			$scope.bool = 0;
+			$scope.ty = 'name';
+			$scope.books = {};
+			if(data){
+				$scope.data = data;
+				$scope.Search = $scope.data.title[0];
+				$scope.sort = $scope.data.title[4];
+			}else{
+				$http.get('data/data.json',{params:{'require':"jediyuan"}})
+				.success(function(data,status){
+					$scope.data = data;
+					$scope.Search = $scope.data.title[0];
+					$scope.sort = $scope.data.title[4];
+				});
+			}
+			$scope.typeFun = function(ty){
+				var obj = {};
+				obj[ty] = this.inputVal;
+				return obj;
+			}
+			$scope.changeType = function(type){
+				this.ty = $scope.Search;
+			}
+			$scope.add = function(books){
+				if(!$scope.books.name){
+					alert('please enter the name');
+				}else if(!$scope.books.author){
+					alert('please enter the author');
+				}else if(!$scope.books.publish){
+					alert('please enter the publish');
+				}else if(!$scope.books.price){
+					alert('please enter the price');
+				}else{
+					var len = $scope.data.lists.length;
+					$scope.books = {
+						"id":++len,
+						"name":typeof($scope.books.name) == 'undefined' ? ' ' : $scope.books.name,
+						"author":typeof($scope.books.author) == 'undefined' ? ' ' : $scope.books.author,
+						"publish":typeof($scope.books.publish) == 'undefined' ? ' ' : $scope.books.publish,
+						"price":typeof($scope.books.price) == 'undefined' ? 0 : ($scope.books.price-0),
+						"discounted":typeof($scope.books.discounted) == 'undefined' ? '无' : $scope.books.discounted == '' ? '无' : ($scope.books.discounted-0)
+					};
+					
+					$scope.data.lists.push($scope.books);
+					$scope.green = len;
+					$timeout(function(){
+						$scope.green = -1;
+					},2000);
+					sessionStorage.setItem('data',angular.toJson($scope.data));
+					$http({method:'post',url:'data/data.json',params:{"id":$scope.books.id}})
+					.success(function(data){
+						$scope.books = {};
+					}).error(function() {
+						console.log('ohuo');
+					});
+				}
+			}
+			$scope.modified = function(index,$index){
+				$scope.isShow = true;
+				var data = $scope.data.lists;
+				$scope.newName = data[index-1].name;
+				$scope.newAuthor = data[index-1].author;
+				$scope.newPublish = data[index-1].publish;
+				$scope.newDiscounted = data[index-1].discounted;
+				$scope.newPrice = data[index-1].price;
+				var oldList = {
+					'id':index,
+					"name":data[index-1].name,
+					"author":data[index-1].author,
+					"publish":data[index-1].publish,
+					"price":data[index-1].price,
+					"discounted":data[index-1].discounted
+				};
+				$scope.confirm = function(){
+					var newList = {
+						"id":index,
+						"name":$scope.newName,
+						"author":$scope.newAuthor,
+						"publish":$scope.newPublish,
+						"price":$scope.newPrice == '' ? 0 : ($scope.newPrice-0),
+						"discounted":$scope.newDiscounted == '' ? '无' : $scope.newDiscounted
+						
+					};
+					var equals = angular.equals(oldList,newList);
+					data.splice((index-1),1,newList);
+					sessionStorage.setItem('data',angular.toJson($scope.data));
+					$scope.isShow = false;
+					if(!equals){
+						$http({method:'post',url:'data/data.json',params:{"id":newList.id}}).success(function(){
+							console.log('修改成功');
+						});
+						$scope.green = index;
+						$timeout(function(){
+							$scope.green = -1;
+						},2000)
+					}
+				}
+				$scope.cancal = function(){
+					$scope.isShow = false;
+				}
+			}
+			$scope.delete = function(index){
+				/*var arr = [];
+				angular.forEach($scope.data.lists,function(list,index,objs){
+					// value === objs[index]
+					angular.forEach(list,function(value,index){
+			            this.push(index+"-"+value);
+			        },arr1);
+				});*/
+				var len = $scope.data.lists.length;
+				for(var i = index;i < len;i++){
+					 $scope.data.lists[i].id--;
+				}
+				$scope.data.lists.splice((index-1),1);
+				sessionStorage.setItem('data',angular.toJson($scope.data));
+				$http({method:'post',url:'data/data.json',params:{"id":index}}).success(function(){
+					console.log('删除成功');
+				})
+			}
+		}])
+	</script>
+</body>
+</html>
