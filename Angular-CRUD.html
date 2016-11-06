@@ -111,7 +111,7 @@
 				$scope.Search = $scope.data.title[0];
 				$scope.sort = $scope.data.title[4];
 			}else{
-				$http.get('data/data.json',{params:{'require':"jediyuan"}})
+				$http.get('data/data.json',{params:{'require':"jedi"}})
 				.success(function(data,status){
 					$scope.data = data;
 					$scope.Search = $scope.data.title[0];
